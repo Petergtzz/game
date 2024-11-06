@@ -29,6 +29,9 @@ typedef struct {
 
 global_variable bool running;
 global_variable screen_buffer global_screen_buffer;
+u32 x_offset = 0;
+u32 y_offset = 0;
+
 
 SDL_Texture *color_texture;
 
@@ -86,7 +89,6 @@ internal void osx_process_event(SDL_Window *window)
         {
             running = false;
         } break;
-
         
         default:
         {
@@ -153,13 +155,13 @@ int main(int argc, char *argv[])
         SDL_Renderer *renderer = SDL_CreateRenderer(window, -1, 0);
 
         if(renderer)
-        {
+        {    
             // Todo: Change function name
             osx_setup_screen(renderer, &global_screen_buffer, 
                              display_area.w, display_area.h);
 
-            u32 x_offset = 0;
-            u32 y_offset = 0;
+            //u32 x_offset = 0;
+            //u32 y_offset = 0;
 
             // Game loop
             running = true; 
@@ -169,9 +171,48 @@ int main(int argc, char *argv[])
                 // TODO: Function does not take either global buffer or render.
                 // Make sure to clean it up. 
                 osx_process_event(window);
+               
+
+                SDL_GameController *controller = NULL;
                 
-                SDL_GameController *game_controller;
-                SDL_GameControllerGetAttached(game_controller);
+                for(int i = 0; i < SDL_NumJoysticks(); i++)
+                {
+                    if(SDL_IsGameController(i))
+                    {
+                        controller = SDL_GameControllerOpen(i);
+                    }
+             
+                    if(controller != 0 && SDL_GameControllerGetAttached(controller))
+                    {
+                        // NOTE: We have a controller with index ControllerIndex.
+                        bool up = SDL_GameControllerGetButton(controller, SDL_CONTROLLER_BUTTON_DPAD_UP);
+                        bool down = SDL_GameControllerGetButton(controller, SDL_CONTROLLER_BUTTON_DPAD_DOWN);
+                        bool left = SDL_GameControllerGetButton(controller, SDL_CONTROLLER_BUTTON_DPAD_LEFT);
+                        bool right = SDL_GameControllerGetButton(controller, SDL_CONTROLLER_BUTTON_DPAD_RIGHT);
+                        bool start = SDL_GameControllerGetButton(controller, SDL_CONTROLLER_BUTTON_START);
+                        bool back = SDL_GameControllerGetButton(controller, SDL_CONTROLLER_BUTTON_BACK);
+                        bool left_shoulder = SDL_GameControllerGetButton(controller, SDL_CONTROLLER_BUTTON_LEFTSHOULDER);
+                        bool right_shoulder = SDL_GameControllerGetButton(controller, SDL_CONTROLLER_BUTTON_RIGHTSHOULDER);
+                        bool a_button = SDL_GameControllerGetButton(controller, SDL_CONTROLLER_BUTTON_A);
+                        bool b_button = SDL_GameControllerGetButton(controller, SDL_CONTROLLER_BUTTON_B);
+                        bool x_button = SDL_GameControllerGetButton(controller, SDL_CONTROLLER_BUTTON_X);
+                        bool y_button = SDL_GameControllerGetButton(controller, SDL_CONTROLLER_BUTTON_Y);
+
+                        u16 stick_x = SDL_GameControllerGetAxis(controller, SDL_CONTROLLER_AXIS_LEFTX);
+                        u16 stick_y = SDL_GameControllerGetAxis(controller, SDL_CONTROLLER_AXIS_LEFTY);
+
+                        if(x_button)
+                        {
+                            y_offset += 10; 
+                        }
+                        
+                    }
+                    else
+                    {
+                        // TODO: This controller is note plugged in.
+                    } 
+                }
+
 
                 // Render
                 osx_update_screen(&global_screen_buffer, x_offset, y_offset);

@@ -20,25 +20,22 @@ typedef struct {
     s32 height;
     u32 pitch;
     u32 bytes_per_pixel; 
-} screen_buffer;
+} window_buffer;
 
 typedef struct {
     int height;
     int width;
-} screen_dimensions;
+} window_dimensions;
 
 global_variable bool running;
-global_variable screen_buffer global_screen_buffer;
-u32 x_offset = 0;
-u32 y_offset = 0;
-
-
+global_variable window_buffer global_window_buffer;
+// TODO: Change it to not be global. 
 SDL_Texture *color_texture;
 
-internal void osx_setup_screen(SDL_Renderer *renderer, 
-                                screen_buffer *buffer,
-                                int width,
-                                int height)
+internal void MacOsSetupScreen(SDL_Renderer *renderer, 
+                               window_buffer *buffer,
+                               int width,
+                               int height)
 {
     // Check if buffer memory already exists, if it does, free it. 
     if(buffer->memory)
@@ -55,7 +52,7 @@ internal void osx_setup_screen(SDL_Renderer *renderer,
                             buffer->width * 
                             buffer->height);
     
-    // Todo: Should this function call be here??
+    // Todo: Should this function called be here??
     color_texture = SDL_CreateTexture(renderer,
                                       SDL_PIXELFORMAT_ARGB8888,
                                       SDL_TEXTUREACCESS_STREAMING,
@@ -63,26 +60,46 @@ internal void osx_setup_screen(SDL_Renderer *renderer,
                                       buffer->height);
 }
 
-internal void osx_process_event(SDL_Window *window) 
+internal void MacOsHandleEvent(SDL_Window *window) 
 {
     SDL_Event event;
     SDL_PollEvent(&event);
 
     switch(event.type)
     {
+        case SDL_KEYDOWN: 
+        {
+        } break;
+
+        case SDL_KEYUP:
+        {
+            SDL_KeyCode key = event.key.keysym.sym;
+            bool is_down = ((key & 1 << 30) != 0); 
+
+            if(is_down)
+            {
+                // TODO: Add more keys - space, esc, q, e, etc
+                if(key == SDLK_a)
+                {
+                    printf("A\n");
+                }
+                else if(key == SDLK_w) 
+                {
+                    printf("W\n");
+                }
+                else if(key == SDLK_s) 
+                {
+                    printf("S\n");
+                }
+                else if(key == SDLK_d) 
+                {
+                    printf("D\n");
+                }
+            }
+        } break;
+
         case SDL_WINDOWEVENT:
         {
-            /*
-            switch (event.window.event)
-            {
-                case SDL_WINDOWEVENT_RESIZED:
-                {
-                    int width, height;
-                    SDL_GetWindowSize(window, &width, &height);
-                    osx_resize_screen(renderer, &global_screen_buffer, width, height);
-                } break; 
-            } break;
-            */
         } break;
 
         case SDL_QUIT:
@@ -97,12 +114,12 @@ internal void osx_process_event(SDL_Window *window)
     }
 }
 
-internal void osx_update_screen(screen_buffer *buffer, 
+internal void MacOsUpdateScreen(window_buffer *buffer, 
                                 u32 x_offset, 
                                 u32 y_offset)
 {
-    // Remember: big-endian architecture -- we specified pixel format as ARGB, 
-    // but in memory pixels are stored as BGRA
+    // Note: Big-endian architecture -- specified pixel format as -> ARGB 
+    // Memory format as -> BGRA
     u8 *row = (u8*)buffer->memory;
     for (int y = 0; y < buffer->height; y++)
     {
@@ -119,12 +136,12 @@ internal void osx_update_screen(screen_buffer *buffer,
     }
 }
 
-internal void osx_render_to_screen(SDL_Renderer *renderer, screen_buffer buffer)
+internal void MacOsRenderToScreen(SDL_Renderer *renderer, window_buffer *buffer)
 {
     SDL_UpdateTexture(color_texture, 
                       NULL, 
-                      buffer.memory, 
-                      buffer.pitch);
+                      buffer->memory, 
+                      buffer->pitch);
     SDL_RenderCopy(renderer, 
                    color_texture, 
                    NULL, 
@@ -156,42 +173,41 @@ int main(int argc, char *argv[])
 
         if(renderer)
         {    
-            // Todo: Change function name
-            osx_setup_screen(renderer, &global_screen_buffer, 
+            MacOsSetupScreen(renderer, &global_window_buffer, 
                              display_area.w, display_area.h);
 
-            //u32 x_offset = 0;
-            //u32 y_offset = 0;
+            u32 x_offset = 0;
+            u32 y_offset = 0;
 
             // Game loop
             running = true; 
             while(running)
             {
-                // Process input
-                // TODO: Function does not take either global buffer or render.
-                // Make sure to clean it up. 
-                osx_process_event(window);
+                MacOsHandleEvent(window);
                
-
+                // Note: First, open a controller, but to find it we must loop over 
+                // all the joysticks to find a valid game pad. 
                 SDL_GameController *controller = NULL;
                 
-                for(int i = 0; i < SDL_NumJoysticks(); i++)
+                for(int joystick = 0; joystick < SDL_NumJoysticks(); joystick++)
                 {
-                    if(SDL_IsGameController(i))
+                    // Point the valid joystick to the controller and open it.  
+                    if(SDL_IsGameController(joystick))
                     {
-                        controller = SDL_GameControllerOpen(i);
+                        controller = SDL_GameControllerOpen(joystick);
                     }
              
+                    // Check that the controller is valid and plugged in.
+                    // Get input from controllers. 
                     if(controller != 0 && SDL_GameControllerGetAttached(controller))
                     {
-                        // NOTE: We have a controller with index ControllerIndex.
-                        bool up = SDL_GameControllerGetButton(controller, SDL_CONTROLLER_BUTTON_DPAD_UP);
-                        bool down = SDL_GameControllerGetButton(controller, SDL_CONTROLLER_BUTTON_DPAD_DOWN);
-                        bool left = SDL_GameControllerGetButton(controller, SDL_CONTROLLER_BUTTON_DPAD_LEFT);
+                        bool up    = SDL_GameControllerGetButton(controller, SDL_CONTROLLER_BUTTON_DPAD_UP);
+                        bool down  = SDL_GameControllerGetButton(controller, SDL_CONTROLLER_BUTTON_DPAD_DOWN);
+                        bool left  = SDL_GameControllerGetButton(controller, SDL_CONTROLLER_BUTTON_DPAD_LEFT);
                         bool right = SDL_GameControllerGetButton(controller, SDL_CONTROLLER_BUTTON_DPAD_RIGHT);
                         bool start = SDL_GameControllerGetButton(controller, SDL_CONTROLLER_BUTTON_START);
-                        bool back = SDL_GameControllerGetButton(controller, SDL_CONTROLLER_BUTTON_BACK);
-                        bool left_shoulder = SDL_GameControllerGetButton(controller, SDL_CONTROLLER_BUTTON_LEFTSHOULDER);
+                        bool back  = SDL_GameControllerGetButton(controller, SDL_CONTROLLER_BUTTON_BACK);
+                        bool left_shoulder  = SDL_GameControllerGetButton(controller, SDL_CONTROLLER_BUTTON_LEFTSHOULDER);
                         bool right_shoulder = SDL_GameControllerGetButton(controller, SDL_CONTROLLER_BUTTON_RIGHTSHOULDER);
                         bool a_button = SDL_GameControllerGetButton(controller, SDL_CONTROLLER_BUTTON_A);
                         bool b_button = SDL_GameControllerGetButton(controller, SDL_CONTROLLER_BUTTON_B);
@@ -205,20 +221,19 @@ int main(int argc, char *argv[])
                         {
                             y_offset += 10; 
                         }
-                        
                     }
                     else
                     {
-                        // TODO: This controller is note plugged in.
+                        // TODO: This controller is not plugged in.
                     } 
                 }
 
+                // TODO: When should we close the controller?
 
-                // Render
-                osx_update_screen(&global_screen_buffer, x_offset, y_offset);
-                osx_render_to_screen(renderer, global_screen_buffer);
+                MacOsUpdateScreen(&global_window_buffer, x_offset, y_offset);
+                MacOsRenderToScreen(renderer, &global_window_buffer);
 
-                // Todo: Should I be clearing the memory buffer in each frame??
+                // TODO: Should I be clearing the memory buffer in each frame??
                 
                 x_offset++;
             }

@@ -5,19 +5,22 @@
     $Creator: Pedro Gutierrez
    ========================================================================= */
 
-#include "main.h"
-
 #include <stdio.h>
 #include <SDL2/SDL.h>
 #include <stdbool.h>
+
+#include "main.h"
+#include "timer.h"
+
+#include "timer.c" 
 
 #define internal static
 #define global_variable static
 
 typedef struct {
     void *memory; 
-    s32 width;
-    s32 height;
+    i32 width;
+    i32 height;
     u32 pitch;
     u32 bytes_per_pixel; 
 } window_buffer;
@@ -167,6 +170,8 @@ int main(int argc, char *argv[])
                                           display_area.h,
                                           SDL_WINDOW_RESIZABLE);
 
+    u64 counter_frequency = SDL_GetPerformanceFrequency();
+
     if(window)
     {
         SDL_Renderer *renderer = SDL_CreateRenderer(window, -1, 0);
@@ -179,8 +184,12 @@ int main(int argc, char *argv[])
             u32 x_offset = 0;
             u32 y_offset = 0;
 
+
             // Game loop
-            running = true; 
+            running = true;
+
+            u64 last_counter = mach_absolute_time();
+    
             while(running)
             {
                 MacOsHandleEvent(window);
@@ -236,6 +245,18 @@ int main(int argc, char *argv[])
                 // TODO: Should I be clearing the memory buffer in each frame??
                 
                 x_offset++;
+
+                u64 end_counter = mach_absolute_time();
+                u64 counter_elapsed = end_counter - last_counter;
+
+                // Get the miliseconds per frame
+                real64 ms_per_frame = ((1000.0f * (real64)counter_elapsed) / (real64)counter_frequency);
+                real64 fps = (real64)counter_frequency / (real64)counter_elapsed;
+                printf("%f ms/f, %f f/s\n", ms_per_frame, fps);   
+                
+
+                last_counter = end_counter;
+
             }
         }
         else

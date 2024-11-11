@@ -8,14 +8,14 @@
 #include <stdio.h>
 #include <SDL2/SDL.h>
 #include <stdbool.h>
-
-#include "main.h"
-#include "timer.h"
-
-#include "timer.c" 
+#include <mach/mach_time.h>
 
 #define internal static
 #define global_variable static
+
+#include "main.h"
+
+#include "game.c"
 
 typedef struct {
     void *memory; 
@@ -239,7 +239,14 @@ int main(int argc, char *argv[])
 
                 // TODO: When should we close the controller?
 
-                MacOsUpdateScreen(&global_window_buffer, x_offset, y_offset);
+                // MacOsUpdateScreen(&global_window_buffer, x_offset, y_offset);
+                gamescreen_buffer buffer = {0};
+                buffer.memory = global_window_buffer.memory;
+                buffer.width = global_window_buffer.width;
+                buffer.height = global_window_buffer.height;
+                buffer.pitch = global_window_buffer.pitch;
+                buffer.bytes_per_pixel = global_window_buffer.bytes_per_pixel;
+                GameUpdateAndRender(&buffer, x_offset, y_offset);
                 MacOsRenderToScreen(renderer, &global_window_buffer);
 
                 // TODO: Should I be clearing the memory buffer in each frame??

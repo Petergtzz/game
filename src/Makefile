@@ -1,9 +1,9 @@
 build:
-	clang -Wall -std=c99 -lSDL2 main.c -o main
+	clang -std=c99 -lSDL2 macos_game.c -o game
 
 run:
-	./main
+	./game
 
 clean:
-	rm main
+	rm game
 

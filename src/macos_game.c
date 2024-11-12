@@ -46,20 +46,34 @@ typedef struct {
 global_variable bool running;
 global_variable window_buffer global_window_buffer;
 
+internal void SDLAudioCallBack(void *user_data, u8 *audio_data, int length)
+{
+    memset(audio_data, 0, length);
+}
+
+internal void MacOsInitSound(int samples_per_second, int buffer_size)
+{
+    SDL_AudioSpec audio_settings = {0};
+
+    audio_settings.freq = samples_per_second;
+    audio_settings.format = AUDIO_S16LSB;
+    audio_settings.channels = 2;
+    audio_settings.samples = 512;
+    audio_settings.callback = &SDLAudioCallBack;
+
+    SDL_OpenAudio(&audio_settings, 0);
+
+    if(audio_settings.format != AUDIO_S16LSB)
+    {
+        // TODO: Complain if we can't get an S16LE buffer.
+    }
+}
+
 internal window_dimensions MacOsGetWindowSize(SDL_Window *window)
 {
     window_dimensions result; 
     SDL_GetWindowSize(window, &result.width, &result.height);
     return result;
-}
-
-internal void MacOsResizeWindow(SDL_Renderer *renderer, window_buffer *buffer, window_dimensions dimensions)
-{
-    buffer->color_texture = SDL_CreateTexture(renderer,
-                                              SDL_PIXELFORMAT_ARGB8888,
-                                              SDL_TEXTUREACCESS_STREAMING,
-                                              dimensions.width,
-                                              dimensions.height);
 }
 
 internal void MacOsSetupScreen(SDL_Renderer *renderer, window_buffer *buffer, int width, int height)
@@ -70,13 +84,23 @@ internal void MacOsSetupScreen(SDL_Renderer *renderer, window_buffer *buffer, in
         free(buffer->memory);
     }
 
+    if(buffer->color_texture)
+    {
+        SDL_DestroyTexture(buffer->color_texture);  
+    }
+
     buffer->width = width;
     buffer->height = height; 
     buffer->bytes_per_pixel = 4;
     buffer->pitch = width * buffer->bytes_per_pixel;
     
     buffer->memory = malloc(buffer->bytes_per_pixel * buffer->width * buffer->height);
-     
+
+    buffer->color_texture = SDL_CreateTexture(renderer,
+                                              SDL_PIXELFORMAT_ARGB8888,
+                                              SDL_TEXTUREACCESS_STREAMING,
+                                              width,
+                                              height);
 }
 
 internal void MacOsHandleEvent(SDL_Window *window) 
@@ -164,24 +188,20 @@ internal void MacOsRenderToScreen(SDL_Renderer *renderer, window_buffer *buffer)
                    NULL, 
                    NULL);
     SDL_RenderPresent(renderer);
-
 }
 
 int main(int argc, char *argv[])
 {
-    if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_GAMECONTROLLER) != 0)
+    if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_GAMECONTROLLER | SDL_INIT_AUDIO) != 0)
     {
         fprintf(stderr, "Error: Could not initialize SDL.\n");
     }
 
-    SDL_DisplayMode display_area;
-    SDL_GetDisplayMode(0, 0, &display_area);
-
     SDL_Window *window = SDL_CreateWindow("The Settlers",
                                           SDL_WINDOWPOS_UNDEFINED,
                                           SDL_WINDOWPOS_UNDEFINED,
-                                          display_area.w,
-                                          display_area.h,
+                                          1280,
+                                          780,
                                           SDL_WINDOW_RESIZABLE);
 
     u64 counter_frequency = SDL_GetPerformanceFrequency();
@@ -192,7 +212,8 @@ int main(int argc, char *argv[])
 
         if(renderer)
         {   
-            MacOsSetupScreen(renderer, &global_window_buffer, display_area.w, display_area.h);
+            window_dimensions dimensions = MacOsGetWindowSize(window);
+            MacOsSetupScreen(renderer, &global_window_buffer, dimensions.width, dimensions.height);
 
             int x_offset = 0;
             int y_offset = 0;
@@ -259,9 +280,6 @@ int main(int argc, char *argv[])
                 buffer.pitch = global_window_buffer.pitch;
                 buffer.bytes_per_pixel = global_window_buffer.bytes_per_pixel;
                 
-                window_dimensions dimensions = MacOsGetWindowSize(window);
-                MacOsResizeWindow(renderer, &global_window_buffer, dimensions);
-
                 GameUpdateAndRender(&buffer, x_offset, y_offset);
                 MacOsRenderToScreen(renderer, &global_window_buffer);
 
@@ -269,17 +287,19 @@ int main(int argc, char *argv[])
                 
                 x_offset++;
 
-#if VIEW_FRAMES 
+
                 u64 end_counter = mach_absolute_time();
                 u64 counter_elapsed = end_counter - last_counter;
 
                 // Get the miliseconds per frame
                 real64 ms_per_frame = ((1000.0f * (real64)counter_elapsed) / (real64)counter_frequency);
                 real64 fps = (real64)counter_frequency / (real64)counter_elapsed;
-                printf("%f ms/f, %f f/s\n", ms_per_frame, fps);   
 
-                last_counter = end_counter;
+#if VIEW_FRAMES 
+                printf("%f ms/f, %f f/s\n", ms_per_frame, fps);   
 #endif
+                last_counter = end_counter;
+
             }
         }
         else

@@ -26,7 +26,14 @@ internal void RenderWierdGradient(gamescreen_buffer *buffer, int x_offset, int y
     }
 }
 
-void GameUpdateAndRender(gamescreen_buffer *buffer, int x_offset, int y_offset)
+void GameUpdateAndRender(game_input *input, gamescreen_buffer *buffer)
 {
+    static int x_offset = 0; 
+    static int y_offset = 0; 
+
+    game_controller_input *input = 
+
+    // NOTE: Dealing with buttons and stick input
+
     RenderWierdGradient(buffer, x_offset, y_offset);
 }

@@ -46,29 +46,6 @@ typedef struct {
 global_variable bool running;
 global_variable window_buffer global_window_buffer;
 
-internal void SDLAudioCallBack(void *user_data, u8 *audio_data, int length)
-{
-    memset(audio_data, 0, length);
-}
-
-internal void MacOsInitSound(int samples_per_second, int buffer_size)
-{
-    SDL_AudioSpec audio_settings = {0};
-
-    audio_settings.freq = samples_per_second;
-    audio_settings.format = AUDIO_S16LSB;
-    audio_settings.channels = 2;
-    audio_settings.samples = 512;
-    audio_settings.callback = &SDLAudioCallBack;
-
-    SDL_OpenAudio(&audio_settings, 0);
-
-    if(audio_settings.format != AUDIO_S16LSB)
-    {
-        // TODO: Complain if we can't get an S16LE buffer.
-    }
-}
-
 internal window_dimensions MacOsGetWindowSize(SDL_Window *window)
 {
     window_dimensions result; 
@@ -85,7 +62,7 @@ internal void MacOsSetupScreen(SDL_Renderer *renderer, window_buffer *buffer, in
     }
 
     if(buffer->color_texture)
-    {
+    {    
         SDL_DestroyTexture(buffer->color_texture);  
     }
 
@@ -190,6 +167,15 @@ internal void MacOsRenderToScreen(SDL_Renderer *renderer, window_buffer *buffer)
     SDL_RenderPresent(renderer);
 }
 
+interal void MacOsProcessGamepadInput(game_button_state *old_state, 
+                                      game_button_state *new_state, 
+                                      SDL_GameController *controller, 
+                                      SDL_GameControllerButton button)
+{
+    new_state->ended_down = SDL_GameControllerGetButton(controller, button);
+    new_state->half_transition_count += ((new_state->ended_down == old_state->ended_down) ? 0 : 1);
+}
+
 int main(int argc, char *argv[])
 {
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_GAMECONTROLLER | SDL_INIT_AUDIO) != 0)
@@ -226,9 +212,11 @@ int main(int argc, char *argv[])
             while(running)
             {
                 MacOsHandleEvent(window);
+
+                game_input input = {};
                
                 // Note: First, open a controller, but to find it we must loop over 
-                // all the joysticks to find a valid game pad. 
+                // all the joysticks to find a valid game pad.
                 SDL_GameController *controller = NULL;
                 
                 for(int joystick = 0; joystick < SDL_NumJoysticks(); joystick++)
@@ -280,10 +268,10 @@ int main(int argc, char *argv[])
                 buffer.pitch = global_window_buffer.pitch;
                 buffer.bytes_per_pixel = global_window_buffer.bytes_per_pixel;
                 
-                GameUpdateAndRender(&buffer, x_offset, y_offset);
+                GameUpdateAndRender(&input, &buffer);
                 MacOsRenderToScreen(renderer, &global_window_buffer);
 
-                // TODO: Should I be clearing the memory buffer in each frame??
+                // TODO: Should I be clearing the memory buffer in each frame?? 
                 
                 x_offset++;
 
